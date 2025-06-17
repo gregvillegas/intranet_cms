@@ -1,0 +1,6 @@
+{% if document.file_type in 'pdf' %}
+  <!-- PDF preview using PDF.js -->
+{% elif document.file_type in 'jpg,jpeg,png,gif' %}
+   <img src="{{ document.file.url }}" class="img-fluid">
+{% endif %}
+<a href="{{ document.file.url }}" download>Download</a>

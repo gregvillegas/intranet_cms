@@ -1,20 +1,22 @@
+import os
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth import login, logout, authenticate
 from django.views.decorators.http import require_POST
-from django.http import JsonResponse
+from django.http import JsonResponse, FileResponse
 from django.contrib.auth.mixins import UserPassesTestMixin
 from django.views.generic import UpdateView
 from django.db.models import Q
 from .models import (Announcement, SharedFile, Department, UserProfile, 
-                    AnnouncementComment, FileVersion, ActivityLog)
+                    AnnouncementComment, FileVersion, ActivityLog, Document)
 from .forms import (AnnouncementForm, SharedFileForm, UserRegistrationForm,
                    CommentForm, FileVersionForm, UserProfileForm, UserEditForm,
                    SearchForm)
 from django.contrib import messages
 from django.core.paginator import Paginator
 from django.urls import reverse_lazy
-
+from pdf2image import convert_from_path
+from tempfile import NamedTemporaryFile
 
 @login_required
 def dashboard(request):
@@ -45,14 +47,14 @@ def edit_announcement(request, pk):
         form = AnnouncementForm(request.POST, instance=announcement)
         if form.is_valid():
             form.save()
-            ActivityLog.log_action(
-                request,
-                'CREATE_ANN',
-                f"Announcement: {announcement.title}",
-                f"Departments: {', '.join([d.name for d in announcement.departments.all()])}"
-            )
+            #ActivityLog.log_action(
+            #    request,
+            #    'CREATE_ANN',
+            #    f"Announcement: {announcement.title}",
+            #    f"Departments: {', '.join([d.name for d in announcement.departments.all()])}"
+            #)
             return redirect('announcement_detail', pk=announcement.pk)
-            #message.success(request, "Announcement updated successfully")
+            message.success(request, "Announcement updated successfully")
     else:
         form = AnnouncementForm(instance=announcement)
     return render(request, 'cms/edit_announcement.html', {
@@ -267,10 +269,40 @@ def delete_file(request, pk):
 
 
 @login_required
-def file_download(request, pk):
+#def file_download(request, pk):
+#    file = get_object_or_404(SharedFile, pk=pk)
+#    response = FileResponse(file.file)
+#    response['Content-Disposition'] = f'attachment: filename="{file.title}.{file.extension()}"' 
+#    return response
+def file_download(request, pk, version=None):
+    """Handle file downloads with version control"""
     file = get_object_or_404(SharedFile, pk=pk)
-    response = FileResponse(file.file)
-    response['Content-Disposition'] = f'attachment: filename="{file.title}.{file.extension()}"' 
+
+    # Check department access
+    user_dept = request.user.userprofile.department
+    if not file.departments.filter(id=user_dept.id).exists():
+        return HttpResponseForbidden("You don't have permission to access this file")
+
+    # Get the appropriate file version
+    if version:
+        file_version = get_object_or_404(FileVersion, file=file, version_number=version)
+        file_obj = file_version.file_content
+        filename = f"{file.title}_v{version}.{file.extension()}"
+    else:
+        file_obj = file.file
+        filename = f"{file.title}.{file.extension()}"
+
+    # Create the response
+    response = FileResponse(file_obj, as_attachment=True, filename=filename)
+
+    # Log the download activity
+    #ActivityLog.log(
+    #    request,
+    #    'DOWNLOAD',
+    #    f"File:{file.id}",
+    #    f"Version:{version if version else 'current'}"
+    #)
+
     return response
 
 @login_required
@@ -354,11 +386,11 @@ class ProfileUpdateView(UserPassesTestMixin, UpdateView):
 
     def get_success_url(self):
         messages.success(self.request, 'Profile updated successfully!')
-        ActivityLog.log_action(
-            self.request.user,
-            'UPDATE_PROFILE',
-            "User updated profile"
-        )
+        #ActivityLog.log_action(
+        #    self.request.user,
+        #    'UPDATE_PROFILE',
+        #    "User updated profile"
+        #)
         return reverse_lazy('profile_view', kwargs={'pk': self.request.user.pk})
 
 @login_required
@@ -395,4 +427,18 @@ def activity_log(request):
     
         })
 
+
+def preview_file(request, file_path):
+    if file_path.endswith('.pdf'):
+        images = convert_from_path(file_path)
+        with NamedTemporaryFile(suffix='.jpg', delete=False) as temp:
+            images[0].save(temp, format='JPEG')
+            return FileResponse(open(temp.name, 'rb'), content_type='image/jpeg')
+
+def document_preview(request, pk):
+    document = get_object_or_404(Document, pk=pk)
+    if document.file_type in ['pdf', 'jpg', 'jpeg', 'png', 'gif']:
+        return render(request, 'preview.html', {'document': document})
+    else:
+        return HttpResponse("Preview not available for this file type")
 

@@ -52,6 +52,15 @@ class FileVersion(models.Model):
         ordering = ['-version_number']
         unique_together = ['file', 'version_number']
 
+## PREVIEW
+class Document(models.Model):
+    file = models.FileField(upload_to='files/')
+    file_type = models.CharField(max_length=10, blank=True)
+
+    def save(self, *args, **kwargs):
+        self.file_type = self.file.name.split('.')[-1].lower()
+        super().save(*args, **kwargs)
+
 class SharedFile(models.Model):
     title = models.CharField(max_length=200)
     description = models.TextField(blank=True)
@@ -112,7 +121,7 @@ class ActivityLog(models.Model):
     ]
     
     user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
-    action = models.CharField(max_length=20, choices=ACTION_CHOICES)
+    action = models.CharField(max_length=200, choices=ACTION_CHOICES)
     target = models.CharField(max_length=200, blank=True)
     timestamp = models.DateTimeField(default=timezone.now)
     details = models.TextField(blank=True)

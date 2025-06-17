@@ -11,6 +11,7 @@ urlpatterns = [
     path('announcements/new/', views.create_announcement, name='create_announcement'),
     path('announcements/<int:pk>/edit/', views.edit_announcement, name='edit_announcement'),
     path('announcements/<int:pk>/delete/', views.delete_announcement, name='delete_announcement'),
+    path('files/<int:pk>/preview', views.document_preview, name='document_preview'),
     path('files/', views.file_list, name='file_list'),
     path('files/<int:pk>/', views.file_detail, name='file_detail'),
     path('files/<int:pk>/update/', views.update_file, name='update_file'),
