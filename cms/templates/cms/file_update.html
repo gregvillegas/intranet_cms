@@ -1,0 +1,207 @@
+{% extends 'cms/base.html' %}
+{% load crispy_forms_tags %}
+
+{% block title %}Update {{ file.title }}{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="card shadow-lg">
+                <div class="card-header bg-primary text-white">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h3 class="mb-0">
+                            <i class="fas fa-upload me-2"></i>
+                            Update File: {{ file.title }}
+                        </h3>
+                        <span class="badge bg-light text-dark">
+                            Current: v{{ file.current_version }}
+                        </span>
+                    </div>
+                </div>
+                
+                <div class="card-body">
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>
+                        You're uploading a new version of this file. The existing file will be kept in version history.
+                    </div>
+                    
+                    <div class="current-file mb-4 p-3 border rounded bg-light">
+                        <div class="d-flex align-items-center mb-3">
+                            {% with ext=file.extension %}
+                            {% if ext in 'pdf' %}
+                            <i class="fas fa-file-pdf text-danger fa-3x me-3"></i>
+                            {% elif ext in 'doc docx' %}
+                            <i class="fas fa-file-word text-primary fa-3x me-3"></i>
+                            {% elif ext in 'xls xlsx' %}
+                            <i class="fas fa-file-excel text-success fa-3x me-3"></i>
+                            {% elif ext in 'ppt pptx' %}
+                            <i class="fas fa-file-powerpoint text-warning fa-3x me-3"></i>
+                            {% elif ext in 'jpg jpeg png gif' %}
+                            <i class="fas fa-file-image text-info fa-3x me-3"></i>
+                            {% elif ext in 'zip rar tar gz' %}
+                            <i class="fas fa-file-archive text-muted fa-3x me-3"></i>
+                            {% else %}
+                            <i class="fas fa-file-alt fa-3x me-3"></i>
+                            {% endif %}
+                            {% endwith %}
+                            
+                            <div>
+                                <h5 class="mb-1">{{ file.title }}</h5>
+                                <div class="text-muted small">
+                                    {{ file.file.size|filesizeformat }} • {{ file.extension|upper }}
+                                    <span class="badge bg-secondary ms-2">v{{ file.current_version }}</span>
+                                </div>
+                                <a href="{% url 'file_download' pk=file.pk %}" class="btn btn-sm btn-outline-primary mt-2">
+                                    <i class="fas fa-download me-1"></i> Download Current
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <form method="post" enctype="multipart/form-data" novalidate>
+                        {% csrf_token %}
+                        
+                        <div class="mb-4">
+                            <label class="form-label">New File Version*</label>
+                            <div class="file-upload-area border rounded p-4 text-center {% if form.file_content.errors %}border-danger{% endif %}">
+                                <div id="filePreview" class="mb-3">
+                                    <i class="fas fa-cloud-upload-alt fa-4x text-muted mb-3"></i>
+                                    <p class="mb-1">Drag & drop your file here or click to browse</p>
+                                    <p class="small text-muted">Maximum file size: 25MB</p>
+                                </div>
+                                {{ form.file_content }}
+                                {% if form.file_content.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {{ form.file_content.errors }}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        
+                        <div class="mb-4">
+                            {{ form.change_notes|as_crispy_field }}
+                            <div class="form-text">
+                                Describe what changed in this version (required)
+                            </div>
+                        </div>
+                        
+                        <div class="d-grid gap-2 d-md-flex justify-content-md-end mt-4">
+                            <a href="{% url 'file_detail' pk=file.pk %}" class="btn btn-outline-secondary me-md-2">
+                                <i class="fas fa-times me-1"></i> Cancel
+                            </a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-upload me-1"></i> Upload New Version
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<!-- Font Awesome for icons -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+
+<!-- File upload preview -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const fileInput = document.getElementById('id_file_content');
+    const filePreview = document.getElementById('filePreview');
+    
+    fileInput.addEventListener('change', function(e) {
+        if (this.files && this.files[0]) {
+            const file = this.files[0];
+            const fileSize = (file.size / (1024 * 1024)).toFixed(2); // MB
+            const fileName = file.name;
+            const fileExt = fileName.split('.').pop().toLowerCase();
+            
+            // Clear previous preview
+            filePreview.innerHTML = '';
+            
+            // Create icon based on file type
+            let iconClass = 'fas fa-file-alt';
+            let iconColor = '';
+            
+            if (fileExt === 'pdf') {
+                iconClass = 'fas fa-file-pdf';
+                iconColor = 'text-danger';
+            } else if (['doc', 'docx'].includes(fileExt)) {
+                iconClass = 'fas fa-file-word';
+                iconColor = 'text-primary';
+            } else if (['xls', 'xlsx'].includes(fileExt)) {
+                iconClass = 'fas fa-file-excel';
+                iconColor = 'text-success';
+            } else if (['ppt', 'pptx'].includes(fileExt)) {
+                iconClass = 'fas fa-file-powerpoint';
+                iconColor = 'text-warning';
+            } else if (['jpg', 'jpeg', 'png', 'gif'].includes(fileExt)) {
+                iconClass = 'fas fa-file-image';
+                iconColor = 'text-info';
+            } else if (['zip', 'rar', 'tar', 'gz'].includes(fileExt)) {
+                iconClass = 'fas fa-file-archive';
+                iconColor = 'text-muted';
+            }
+            
+            // Create preview elements
+            const iconEl = document.createElement('i');
+            iconEl.className = `${iconClass} ${iconColor} fa-4x mb-3`;
+            
+            const nameEl = document.createElement('div');
+            nameEl.className = 'fw-bold mb-1';
+            nameEl.textContent = fileName;
+            
+            const sizeEl = document.createElement('div');
+            sizeEl.className = 'text-muted small';
+            sizeEl.textContent = `${fileSize} MB • ${fileExt.toUpperCase()}`;
+            
+            // Append to preview
+            filePreview.appendChild(iconEl);
+            filePreview.appendChild(nameEl);
+            filePreview.appendChild(sizeEl);
+        }
+    });
+    
+    // Drag and drop functionality
+    const uploadArea = document.querySelector('.file-upload-area');
+    
+    uploadArea.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        uploadArea.classList.add('border-primary');
+    });
+    
+    uploadArea.addEventListener('dragleave', () => {
+        uploadArea.classList.remove('border-primary');
+    });
+    
+    uploadArea.addEventListener('drop', (e) => {
+        e.preventDefault();
+        uploadArea.classList.remove('border-primary');
+        fileInput.files = e.dataTransfer.files;
+        fileInput.dispatchEvent(new Event('change'));
+    });
+});
+</script>
+
+<style>
+.file-upload-area {
+    transition: all 0.3s ease;
+    cursor: pointer;
+}
+.file-upload-area:hover {
+    border-color: #86b7fe;
+    background-color: rgba(13, 110, 253, 0.05);
+}
+.current-file {
+    background-color: rgba(248, 249, 250, 0.5);
+}
+#id_file_content {
+    opacity: 0;
+    position: absolute;
+    z-index: -1;
+}
+</style>
+{% endblock %}

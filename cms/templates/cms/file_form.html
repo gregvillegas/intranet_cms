@@ -1,0 +1,202 @@
+{% extends 'cms/base.html' %}
+{% load crispy_forms_tags %}
+
+{% block title %}{% if form.instance.pk %}Update{% else %}Upload{% endif %} File{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="card shadow-lg">
+                <div class="card-header bg-primary text-white">
+                    <h3 class="mb-0">
+                        <i class="fas fa-upload me-2"></i>
+                        {% if form.instance.pk %}Update File{% else %}Upload New File{% endif %}
+                    </h3>
+                </div>
+                <div class="card-body">
+                    <form method="post" enctype="multipart/form-data" novalidate>
+                        {% csrf_token %}
+                        
+                        {% if form.instance.pk %}
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle me-2"></i>
+                            You're uploading a new version of <strong>{{ form.instance.title }}</strong>.
+                            Current version: v{{ form.instance.current_version }}
+                        </div>
+                        {% endif %}
+                        
+                        <div class="mb-4">
+                            {{ form.title|as_crispy_field }}
+                        </div>
+                        
+                        <div class="mb-4">
+                            {{ form.description|as_crispy_field }}
+                        </div>
+                        
+                        <div class="mb-4">
+                            <label class="form-label">File*</label>
+                            <div class="file-upload-area border rounded p-4 text-center {% if form.file.errors %}border-danger{% endif %}">
+                                <div id="filePreview" class="mb-3">
+                                    {% if form.instance.file %}
+                                    <div class="current-file d-flex align-items-center justify-content-center mb-3">
+                                        {% with ext=form.instance.extension %}
+                                        {% if ext in 'pdf' %}
+                                        <i class="fas fa-file-pdf text-danger fa-4x"></i>
+                                        {% elif ext in 'doc docx' %}
+                                        <i class="fas fa-file-word text-primary fa-4x"></i>
+                                        {% elif ext in 'xls xlsx' %}
+                                        <i class="fas fa-file-excel text-success fa-4x"></i>
+                                        {% elif ext in 'ppt pptx' %}
+                                        <i class="fas fa-file-powerpoint text-warning fa-4x"></i>
+                                        {% elif ext in 'jpg jpeg png gif' %}
+                                        <i class="fas fa-file-image text-info fa-4x"></i>
+                                        {% elif ext in 'zip rar tar gz' %}
+                                        <i class="fas fa-file-archive text-muted fa-4x"></i>
+                                        {% else %}
+                                        <i class="fas fa-file-alt fa-4x"></i>
+                                        {% endif %}
+                                        {% endwith %}
+                                    </div>
+                                    <div class="current-file-info">
+                                        <strong>Current file:</strong> 
+                                        <a href="{% url 'file_download' pk=form.instance.pk %}" target="_blank">
+                                            {{ form.instance.file.name|cut:"files/" }}
+                                        </a>
+                                        <small class="d-block text-muted">
+                                            ({{ form.instance.file.size|filesizeformat }})
+                                        </small>
+                                    </div>
+                                    {% endif %}
+                                </div>
+                                <input type="file" class="form-control" name="file" id="id_file" 
+                                       {% if not form.instance.pk %}required{% endif %}>
+                                <div class="form-text">
+                                    Maximum file size: 25MB. Supported formats: documents, images, archives.
+                                </div>
+                                {% if form.file.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {{ form.file.errors }}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        
+                        {% if form.instance.pk %}
+                        <div class="mb-4">
+                            {{ form.change_notes|as_crispy_field }}
+                            <div class="form-text">
+                                Describe what changed in this version (optional)
+                            </div>
+                        </div>
+                        {% endif %}
+                        
+                        <div class="mb-4">
+                            {{ form.departments|as_crispy_field }}
+                            <div class="form-text">
+                                Select which departments can access this file
+                            </div>
+                        </div>
+                        
+                        <div class="d-grid gap-2 d-md-flex justify-content-md-end mt-4">
+                            <a href="{% if form.instance.pk %}{% url 'file_detail' pk=form.instance.pk %}{% else %}{% url 'file_list' %}{% endif %}" 
+                               class="btn btn-outline-secondary me-md-2">
+                                Cancel
+                            </a>
+                            <button type="submit" class="btn btn-primary">
+                                {% if form.instance.pk %}Upload New Version{% else %}Upload File{% endif %}
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<!-- Font Awesome for icons -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+
+<!-- File upload preview functionality -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const fileInput = document.getElementById('id_file');
+    const filePreview = document.getElementById('filePreview');
+    
+    fileInput.addEventListener('change', function(e) {
+        if (this.files && this.files[0]) {
+            const file = this.files[0];
+            const fileSize = (file.size / (1024 * 1024)).toFixed(2); // MB
+            const fileName = file.name;
+            const fileExt = fileName.split('.').pop().toLowerCase();
+            
+            // Clear previous preview
+            filePreview.innerHTML = '';
+            
+            // Create icon based on file type
+            let iconClass = 'fas fa-file-alt';
+            let iconColor = '';
+            
+            if (fileExt === 'pdf') {
+                iconClass = 'fas fa-file-pdf';
+                iconColor = 'text-danger';
+            } else if (['doc', 'docx'].includes(fileExt)) {
+                iconClass = 'fas fa-file-word';
+                iconColor = 'text-primary';
+            } else if (['xls', 'xlsx'].includes(fileExt)) {
+                iconClass = 'fas fa-file-excel';
+                iconColor = 'text-success';
+            } else if (['ppt', 'pptx'].includes(fileExt)) {
+                iconClass = 'fas fa-file-powerpoint';
+                iconColor = 'text-warning';
+            } else if (['jpg', 'jpeg', 'png', 'gif'].includes(fileExt)) {
+                iconClass = 'fas fa-file-image';
+                iconColor = 'text-info';
+            } else if (['zip', 'rar', 'tar', 'gz'].includes(fileExt)) {
+                iconClass = 'fas fa-file-archive';
+                iconColor = 'text-muted';
+            }
+            
+            // Create preview elements
+            const iconEl = document.createElement('i');
+            iconEl.className = `${iconClass} ${iconColor} fa-4x mb-3`;
+            
+            const nameEl = document.createElement('div');
+            nameEl.className = 'fw-bold';
+            nameEl.textContent = fileName;
+            
+            const sizeEl = document.createElement('div');
+            sizeEl.className = 'text-muted small';
+            sizeEl.textContent = `${fileSize} MB`;
+            
+            // Append to preview
+            filePreview.appendChild(iconEl);
+            filePreview.appendChild(nameEl);
+            filePreview.appendChild(sizeEl);
+        }
+    });
+    
+    // Style department checkboxes
+    const deptCheckboxes = document.querySelectorAll('#div_id_departments input[type="checkbox"]');
+    deptCheckboxes.forEach(checkbox => {
+        checkbox.classList.add('form-check-input');
+        checkbox.parentElement.classList.add('form-check');
+        checkbox.parentElement.classList.add('mb-2');
+    });
+});
+</script>
+
+<style>
+.file-upload-area {
+    transition: border-color 0.15s ease-in-out;
+}
+.file-upload-area:hover {
+    border-color: #86b7fe;
+}
+.current-file-info {
+    margin-bottom: 1rem;
+}
+</style>
+{% endblock %}

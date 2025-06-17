@@ -1,0 +1,116 @@
+{% extends 'cms/base.html' %}
+
+{% block title %}Delete File - {{ file.title }}{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center mt-5">
+        <div class="col-lg-6">
+            <div class="card shadow-lg border-danger">
+                <div class="card-header bg-danger text-white">
+                    <h3 class="mb-0">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        Confirm File Deletion
+                    </h3>
+                </div>
+                
+                <div class="card-body">
+                    <div class="file-preview text-center mb-4">
+                        {% with ext=file.extension %}
+                        {% if ext in 'pdf' %}
+                        <i class="fas fa-file-pdf text-danger fa-5x mb-3"></i>
+                        {% elif ext in 'doc docx' %}
+                        <i class="fas fa-file-word text-primary fa-5x mb-3"></i>
+                        {% elif ext in 'xls xlsx' %}
+                        <i class="fas fa-file-excel text-success fa-5x mb-3"></i>
+                        {% elif ext in 'ppt pptx' %}
+                        <i class="fas fa-file-powerpoint text-warning fa-5x mb-3"></i>
+                        {% elif ext in 'jpg jpeg png gif' %}
+                        <i class="fas fa-file-image text-info fa-5x mb-3"></i>
+                        {% elif ext in 'zip rar tar gz' %}
+                        <i class="fas fa-file-archive text-muted fa-5x mb-3"></i>
+                        {% else %}
+                        <i class="fas fa-file-alt fa-5x mb-3"></i>
+                        {% endif %}
+                        {% endwith %}
+                        
+                        <h4>{{ file.title }}</h4>
+                        <div class="text-muted">
+                            {{ file.file.size|filesizeformat }} • {{ file.extension|upper }}
+                            <span class="badge bg-secondary ms-2">v{{ file.current_version }}</span>
+                        </div>
+                    </div>
+                    
+                    <div class="alert alert-danger">
+                        <h5 class="alert-heading">Warning!</h5>
+                        <p>You are about to permanently delete this file and all its versions.</p>
+                        <hr>
+                        <ul class="mb-0">
+                            <li><strong>Uploaded by:</strong> {{ file.uploaded_by.get_full_name }}</li>
+                            <li><strong>Date:</strong> {{ file.uploaded_at|date:"M d, Y" }}</li>
+                            <li><strong>Versions:</strong> {{ file.versions.count }} will be deleted</li>
+                            <li><strong>Departments:</strong> 
+                                {% for dept in file.departments.all %}
+                                <span class="badge bg-primary me-1">{{ dept.name }}</span>
+                                {% endfor %}
+                            </li>
+                        </ul>
+                    </div>
+                    
+                    {% if file.description %}
+                    <div class="file-description border-top pt-3 mb-3">
+                        <h6>Description</h6>
+                        <p>{{ file.description }}</p>
+                    </div>
+                    {% endif %}
+                    
+                    <form method="post">
+                        {% csrf_token %}
+                        <div class="d-flex justify-content-between mt-4">
+                            <a href="{% url 'file_detail' pk=file.pk %}" class="btn btn-outline-secondary">
+                                <i class="fas fa-arrow-left me-1"></i> Cancel
+                            </a>
+                            <button type="submit" class="btn btn-danger">
+                                <i class="fas fa-trash-alt me-1"></i> Confirm Permanent Deletion
+                            </button>
+                        </div>
+                    </form>
+                </div>
+                
+                <div class="card-footer text-center bg-danger bg-opacity-10">
+                    <small class="text-danger">
+                        <i class="fas fa-exclamation-circle me-1"></i>
+                        This action cannot be undone. All file versions and download history will be permanently removed.
+                    </small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<!-- Font Awesome for icons -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+
+<!-- Additional confirmation for deletion -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.querySelector('form');
+    form.addEventListener('submit', function(e) {
+        if (!confirm('Are you absolutely sure you want to permanently delete this file and all its versions?')) {
+            e.preventDefault();
+        }
+    });
+});
+</script>
+
+<style>
+.file-preview {
+    padding: 1.5rem;
+    border: 2px dashed #dee2e6;
+    border-radius: 0.5rem;
+    background-color: rgba(248, 249, 250, 0.5);
+}
+</style>
+{% endblock %}

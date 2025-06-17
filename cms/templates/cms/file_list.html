@@ -1,0 +1,263 @@
+{% extends 'cms/base.html' %}
+{% load static %}
+
+{% block title %}Shared Files{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="mb-0">Shared Files</h1>
+        <a href="{% url 'upload_file' %}" class="btn btn-primary">
+            <i class="fas fa-upload me-2"></i>Upload File
+        </a>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="card-header bg-light">
+            <div class="row align-items-center">
+                <div class="col-md-6">
+                    <h4 class="mb-0">Department Files</h4>
+                </div>
+                <div class="col-md-6">
+                    <form method="get" class="float-md-end">
+                        <div class="input-group">
+                            <input type="text" name="q" class="form-control" placeholder="Search files..." 
+                                   value="{{ request.GET.q }}">
+                            <select name="dept" class="form-select" style="max-width: 150px;">
+                                <option value="">All Departments</option>
+                                {% for dept in all_departments %}
+                                <option value="{{ dept.id }}" {% if request.GET.dept == dept.id|stringformat:"s" %}selected{% endif %}>
+                                    {{ dept.name }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                            <button class="btn btn-outline-secondary" type="submit">
+                                <i class="fas fa-search"></i>
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <div class="card-body">
+            {% if page_obj.object_list %}
+            <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th width="40%">File Name</th>
+                            <th width="15%">Type</th>
+                            <th width="20%">Uploaded By</th>
+                            <th width="15%">Date</th>
+                            <th width="10%">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for file in page_obj %}
+                        <tr>
+                            <td>
+                                <div class="d-flex align-items-center">
+                                    <div class="file-icon me-3">
+                                        {% with ext=file.extension %}
+                                        {% if ext in 'pdf' %}
+                                        <i class="fas fa-file-pdf text-danger fa-2x"></i>
+                                        {% elif ext in 'doc docx' %}
+                                        <i class="fas fa-file-word text-primary fa-2x"></i>
+                                        {% elif ext in 'xls xlsx' %}
+                                        <i class="fas fa-file-excel text-success fa-2x"></i>
+                                        {% elif ext in 'ppt pptx' %}
+                                        <i class="fas fa-file-powerpoint text-warning fa-2x"></i>
+                                        {% elif ext in 'jpg jpeg png gif' %}
+                                        <i class="fas fa-file-image text-info fa-2x"></i>
+                                        {% elif ext in 'zip rar tar gz' %}
+                                        <i class="fas fa-file-archive text-muted fa-2x"></i>
+                                        {% else %}
+                                        <i class="fas fa-file-alt fa-2x"></i>
+                                        {% endif %}
+                                        {% endwith %}
+                                    </div>
+                                    <div>
+                                        <strong>{{ file.title }}</strong>
+                                        <div class="text-muted small">{{ file.description|truncatewords:5 }}</div>
+                                        <div class="mt-1">
+                                            {% for dept in file.departments.all %}
+                                            <span class="badge bg-primary me-1">{{ dept.name }}</span>
+                                            {% endfor %}
+                                        </div>
+                                    </div>
+                                </div>
+                            </td>
+                            <td>
+                                <span class="badge bg-secondary text-uppercase">{{ file.extension }}</span>
+                                {% if file.versions.count > 1 %}
+                                <span class="badge bg-info ms-1" title="{{ file.versions.count }} versions">
+                                    v{{ file.current_version }}
+                                </span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <div class="d-flex align-items-center">
+                                    {% if file.uploaded_by.userprofile.avatar %}
+                                    <img src="{{ file.uploaded_by.userprofile.avatar.url }}" 
+                                         class="rounded-circle me-2" width="30" height="30" alt="User avatar">
+                                    {% else %}
+                                    <div class="rounded-circle bg-secondary text-white d-flex align-items-center justify-content-center me-2" 
+                                         style="width: 30px; height: 30px;">
+                                        {{ file.uploaded_by.first_name|first|default:file.uploaded_by.username|first }}
+                                    </div>
+                                    {% endif %}
+                                    <div>
+                                        {{ file.uploaded_by.get_full_name|default:file.uploaded_by.username }}
+                                    </div>
+                                </div>
+                            </td>
+                            <td>
+                                <small>{{ file.uploaded_at|date:"M d, Y" }}</small>
+                                <br>
+                                <small class="text-muted">{{ file.uploaded_at|timesince }} ago</small>
+                            </td>
+                            <td>
+                                <div class="dropdown">
+                                    <button class="btn btn-sm btn-outline-secondary dropdown-toggle" 
+                                            type="button" id="fileActions{{ file.id }}" 
+                                            data-bs-toggle="dropdown" aria-expanded="false">
+                                        <i class="fas fa-ellipsis-v"></i>
+                                    </button>
+                                    <ul class="dropdown-menu" aria-labelledby="fileActions{{ file.id }}">
+                                        <li>
+                                            <a class="dropdown-item" href="{% url 'file_download' pk=file.pk %}">
+                                                <i class="fas fa-download me-2"></i>Download
+                                            </a>
+                                        </li>
+                                        {% if file.versions.count > 1 %}
+                                        <li>
+                                            <a class="dropdown-item" href="{% url 'file_detail' pk=file.pk %}">
+                                                <i class="fas fa-history me-2"></i>Version History
+                                            </a>
+                                        </li>
+                                        {% endif %}
+                                        {% if file.uploaded_by == request.user or user.userprofile.is_department_admin %}
+                                        <li><hr class="dropdown-divider"></li>
+                                        <li>
+                                            <a class="dropdown-item" href="{% url 'update_file' pk=file.pk %}">
+                                                <i class="fas fa-upload me-2"></i>Upload New Version
+                                            </a>
+                                        </li>
+                                        <li>
+                                            <a class="dropdown-item text-danger" href="#" 
+                                               data-bs-toggle="modal" data-bs-target="#deleteFileModal{{ file.id }}">
+                                                <i class="fas fa-trash-alt me-2"></i>Delete
+                                            </a>
+                                        </li>
+                                        {% endif %}
+                                    </ul>
+                                </div>
+                                
+                                <!-- Delete Confirmation Modal -->
+                                <div class="modal fade" id="deleteFileModal{{ file.id }}" tabindex="-1" aria-hidden="true">
+                                    <div class="modal-dialog">
+                                        <div class="modal-content">
+                                            <div class="modal-header bg-danger text-white">
+                                                <h5 class="modal-title">Confirm Deletion</h5>
+                                                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                                            </div>
+                                            <div class="modal-body">
+                                                Are you sure you want to delete "{{ file.title }}"? This action cannot be undone.
+                                                {% if file.versions.count > 1 %}
+                                                <div class="alert alert-warning mt-2">
+                                                    <i class="fas fa-exclamation-triangle me-2"></i>
+                                                    This will delete all {{ file.versions.count }} versions of this file.
+                                                </div>
+                                                {% endif %}
+                                            </div>
+                                            <div class="modal-footer">
+                                                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                                                <form method="post" action="{% url 'delete_file' pk=file.pk %}">
+                                                    {% csrf_token %}
+                                                    <button type="submit" class="btn btn-danger">Delete File</button>
+                                                </form>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="alert alert-info mb-0">
+                No files found matching your criteria.
+                {% if user.is_authenticated %}
+                <a href="{% url 'upload_file' %}" class="alert-link">Upload a file</a> to get started.
+                {% endif %}
+            </div>
+            {% endif %}
+        </div>
+
+        {% if page_obj.paginator.num_pages > 1 %}
+        <div class="card-footer">
+            <nav aria-label="File pagination">
+                <ul class="pagination justify-content-center mb-0">
+                    {% if page_obj.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page=1&q={{ request.GET.q }}&dept={{ request.GET.dept }}" aria-label="First">
+                            <span aria-hidden="true">&laquo;&laquo;</span>
+                        </a>
+                    </li>
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.previous_page_number }}&q={{ request.GET.q }}&dept={{ request.GET.dept }}" aria-label="Previous">
+                            <span aria-hidden="true">&laquo;</span>
+                        </a>
+                    </li>
+                    {% endif %}
+
+                    <li class="page-item disabled">
+                        <span class="page-link">
+                            Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}
+                        </span>
+                    </li>
+
+                    {% if page_obj.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.next_page_number }}&q={{ request.GET.q }}&dept={{ request.GET.dept }}" aria-label="Next">
+                            <span aria-hidden="true">&raquo;</span>
+                        </a>
+                    </li>
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}&q={{ request.GET.q }}&dept={{ request.GET.dept }}" aria-label="Last">
+                            <span aria-hidden="true">&raquo;&raquo;</span>
+                        </a>
+                    </li>
+                    {% endif %}
+                </ul>
+            </nav>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<!-- Font Awesome for icons -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+
+<!-- Initialize tooltips -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize tooltips
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
+    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl)
+    });
+    
+    // Initialize all modals
+    var deleteModals = document.querySelectorAll('.modal');
+    deleteModals.forEach(function(modalEl) {
+        new bootstrap.Modal(modalEl);
+    });
+});
+</script>
+{% endblock %}

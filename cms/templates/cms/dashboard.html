@@ -1,0 +1,201 @@
+{% extends 'cms/base.html' %}
+{% load static %}
+
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <h2>Dashboard</h2>
+                <span class="badge bg-primary">
+                    {{ department.name }} Department
+                    {% if user.userprofile.is_department_admin %}
+                    <span class="badge bg-warning text-dark ms-2">Admin</span>
+                    {% endif %}
+                </span>
+            </div>
+            <hr>
+        </div>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0">Quick Actions</h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-flex flex-wrap gap-2">
+                        <a href="{% url 'create_announcement' %}" class="btn btn-primary">
+                            <i class="fas fa-bullhorn me-2"></i>New Announcement
+                        </a>
+                        <a href="{% url 'upload_file' %}" class="btn btn-success">
+                            <i class="fas fa-upload me-2"></i>Upload File
+                        </a>
+                        <a href="{% url 'announcement_list' %}" class="btn btn-outline-secondary">
+                            <i class="fas fa-list me-2"></i>View All Announcements
+                        </a>
+                        <a href="{% url 'file_list' %}" class="btn btn-outline-secondary">
+                            <i class="fas fa-folder-open me-2"></i>View All Files
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Two Column Layout -->
+    <div class="row">
+        <!-- Recent Announcements -->
+        <div class="col-md-6 mb-4">
+            <div class="card h-100">
+                <div class="card-header bg-primary text-white">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">Recent Announcements</h5>
+                        <a href="{% url 'announcement_list' %}" class="text-white small">View All</a>
+                    </div>
+                </div>
+                <div class="card-body">
+                    {% if announcements %}
+                    <div class="list-group list-group-flush">
+                        {% for announcement in announcements %}
+                        <a href="{% url 'announcement_detail' pk=announcement.pk %}" 
+                           class="list-group-item list-group-item-action {% if announcement.is_important %}list-group-item-warning{% endif %}">
+                            <div class="d-flex w-100 justify-content-between">
+                                <h6 class="mb-1">{{ announcement.title }}</h6>
+                                <small>{{ announcement.created_at|timesince }} ago</small>
+                            </div>
+                            <p class="mb-1 text-muted">{{ announcement.content|truncatewords:15 }}</p>
+                            <small class="text-muted">Posted by {{ announcement.author.get_full_name }}</small>
+                            {% if announcement.is_important %}
+                            <span class="badge bg-danger float-end">Important</span>
+                            {% endif %}
+                        </a>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="alert alert-info mb-0">
+                        No recent announcements found.
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Recent Files -->
+        <div class="col-md-6 mb-4">
+            <div class="card h-100">
+                <div class="card-header bg-primary text-white">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">Recent Files</h5>
+                        <a href="{% url 'file_list' %}" class="text-white small">View All</a>
+                    </div>
+                </div>
+                <div class="card-body">
+                    {% if shared_files %}
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Type</th>
+                                    <th>Uploaded</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for file in shared_files %}
+                                <tr>
+                                    <td>
+                                        <strong>{{ file.title }}</strong>
+                                        <br>
+                                        <small class="text-muted">{{ file.description|truncatewords:5 }}</small>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-secondary">
+                                            {{ file.extension|upper }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <small>{{ file.uploaded_at|timesince }} ago</small>
+                                        <br>
+                                        <small class="text-muted">by {{ file.uploaded_by.get_full_name }}</small>
+                                    </td>
+                                    <td>
+                                        <a href="{% url 'file_download' pk=file.pk %}" class="btn btn-sm btn-outline-primary">
+                                            <i class="fas fa-download"></i>
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="alert alert-info mb-0">
+                        No recent files found.
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Activity Feed -->
+    <div class="row">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header bg-light">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">Recent Activity</h5>
+			<!-- <a href="{% url 'activity_log' %}" class="small">View Full Log</a> -->
+                    </div>
+                </div>
+                <div class="card-body">
+                    {% with recent_activities=user.userprofile.activity_log.all|slice:":5" %}
+                    {% if recent_activities %}
+                    <ul class="list-unstyled">
+                        {% for activity in recent_activities %}
+                        <li class="mb-3 pb-2 border-bottom">
+                            <div class="d-flex justify-content-between">
+                                <div>
+                                    <strong>{{ activity.get_action_display }}</strong>
+                                    {% if activity.target %} - {{ activity.target }}{% endif %}
+                                </div>
+                                <small class="text-muted">{{ activity.timestamp|timesince }} ago</small>
+                            </div>
+                            {% if activity.details %}
+                            <small class="text-muted">{{ activity.details }}</small>
+                            {% endif %}
+                        </li>
+                        {% endfor %}
+                    </ul>
+                    {% else %}
+                    <div class="alert alert-info mb-0">
+                        No recent activities found.
+                    </div>
+                    {% endif %}
+                    {% endwith %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<!-- Font Awesome for icons -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+
+<!-- Custom dashboard JavaScript -->
+<script>
+// Any custom dashboard JavaScript can go here
+document.addEventListener('DOMContentLoaded', function() {
+    // You can add interactive elements here
+    console.log('Dashboard loaded');
+});
+</script>
+{% endblock %}

@@ -1,0 +1,77 @@
+{% extends 'cms/base.html' %}
+{% load crispy_forms_tags %}
+
+{% block title %}Search{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-4">
+        <div class="card mb-4">
+            <div class="card-header bg-primary text-white">
+                <h3>Search</h3>
+            </div>
+            <div class="card-body">
+                <form method="get">
+                    {{ form|crispy }}
+                    <button type="submit" class="btn btn-primary w-100">Search</button>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-8">
+        {% if query %}
+        <div class="card">
+            <div class="card-header bg-light">
+                <h3>Search Results for "{{ query }}"</h3>
+            </div>
+            <div class="card-body">
+                {% if results %}
+                <div class="list-group">
+                    {% for item in results %}
+                    {% if item|class_name == 'Announcement' %}
+                    <a href="{% url 'announcement_detail' pk=item.pk %}" class="list-group-item list-group-item-action">
+                        <div class="d-flex w-100 justify-content-between">
+                            <h5 class="mb-1">{{ item.title }}</h5>
+                            <small>{{ item.created_at|date:"M d, Y" }}</small>
+                        </div>
+                        <p class="mb-1">{{ item.content|truncatewords:20 }}</p>
+                        <small>Announcement by {{ item.author.get_full_name }}</small>
+                    </a>
+                    {% elif item|class_name == 'SharedFile' %}
+                    <a href="{% url 'file_detail' pk=item.pk %}" class="list-group-item list-group-item-action">
+                        <div class="d-flex w-100 justify-content-between">
+                            <h5 class="mb-1">{{ item.title }}</h5>
+                            <small>{{ item.uploaded_at|date:"M d, Y" }}</small>
+                        </div>
+                        <p class="mb-1">{{ item.description|truncatewords:20|default:"No description" }}</p>
+                        <small>File uploaded by {{ item.uploaded_by.get_full_name }}</small>
+                    </a>
+                    {% elif item|class_name == 'AnnouncementComment' %}
+                    <div class="list-group-item">
+                        <div class="d-flex w-100 justify-content-between">
+                            <h5 class="mb-1">Comment on "{{ item.announcement.title }}"</h5>
+                            <small>{{ item.created_at|date:"M d, Y" }}</small>
+                        </div>
+                        <p class="mb-1">{{ item.content|truncatewords:20 }}</p>
+                        <small>Comment by {{ item.author.get_full_name }}</small>
+                        <div class="mt-2">
+                            <a href="{% url 'announcement_detail' pk=item.announcement.pk %}" class="btn btn-sm btn-outline-primary">
+                                View Announcement
+                            </a>
+                        </div>
+                    </div>
+                    {% endif %}
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="alert alert-info">
+                    No results found for your search.
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

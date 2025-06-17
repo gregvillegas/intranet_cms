@@ -1,0 +1,124 @@
+{% extends 'cms/base.html' %}
+{% load static %}
+
+{% block title %}Download {{ file.title }}{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <h3 class="mb-0">
+                        <i class="fas fa-download me-2"></i>
+                        Download File
+                    </h3>
+                </div>
+                <div class="card-body">
+                    <div class="file-info text-center mb-4">
+                        {% with ext=file.extension %}
+                        {% if ext in 'pdf' %}
+                        <i class="fas fa-file-pdf text-danger fa-5x mb-3"></i>
+                        {% elif ext in 'doc docx' %}
+                        <i class="fas fa-file-word text-primary fa-5x mb-3"></i>
+                        {% elif ext in 'xls xlsx' %}
+                        <i class="fas fa-file-excel text-success fa-5x mb-3"></i>
+                        {% elif ext in 'ppt pptx' %}
+                        <i class="fas fa-file-powerpoint text-warning fa-5x mb-3"></i>
+                        {% elif ext in 'jpg jpeg png gif' %}
+                        <i class="fas fa-file-image text-info fa-5x mb-3"></i>
+                        {% elif ext in 'zip rar tar gz' %}
+                        <i class="fas fa-file-archive text-muted fa-5x mb-3"></i>
+                        {% else %}
+                        <i class="fas fa-file-alt fa-5x mb-3"></i>
+                        {% endif %}
+                        {% endwith %}
+                        
+                        <h4>{{ file.title }}</h4>
+                        <div class="text-muted mb-2">
+                            {{ file.file.size|filesizeformat }} • {{ file.extension|upper }} File
+                        </div>
+                        <div class="badge bg-secondary">
+                            Version {{ file.current_version }}
+                        </div>
+                    </div>
+                    
+                    <div class="file-meta mb-4">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <h6>Details</h6>
+                                <ul class="list-unstyled">
+                                    <li><strong>Uploaded By:</strong> {{ file.uploaded_by.get_full_name }}</li>
+                                    <li><strong>Date:</strong> {{ file.uploaded_at|date:"M d, Y" }}</li>
+                                    <li><strong>Departments:</strong> 
+                                        {% for dept in file.departments.all %}
+                                        <span class="badge bg-primary me-1">{{ dept.name }}</span>
+                                        {% endfor %}
+                                    </li>
+                                </ul>
+                            </div>
+                            <div class="col-md-6">
+                                <h6>Download Options</h6>
+                                <div class="list-group">
+                                    <a href="{% url 'file_download' pk=file.pk %}" class="list-group-item list-group-item-action">
+                                        <i class="fas fa-download me-2"></i>
+                                        Download Current Version (v{{ file.current_version }})
+                                    </a>
+                                    {% if file.versions.count > 1 %}
+                                    <a href="{% url 'file_detail' pk=file.pk %}" class="list-group-item list-group-item-action">
+                                        <i class="fas fa-history me-2"></i>
+                                        View Version History ({{ file.versions.count }} versions)
+                                    </a>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    {% if file.description %}
+                    <div class="file-description border-top pt-3">
+                        <h6>Description</h6>
+                        <p>{{ file.description }}</p>
+                    </div>
+                    {% endif %}
+                </div>
+                <div class="card-footer text-center">
+                    <small class="text-muted">
+                        File will download automatically in <span id="countdown">5</span> seconds...
+                    </small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<!-- Font Awesome for icons -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+
+<!-- Auto-download and countdown -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Start countdown
+    let seconds = 5;
+    const countdownEl = document.getElementById('countdown');
+    const countdownInterval = setInterval(function() {
+        seconds--;
+        countdownEl.textContent = seconds;
+        if (seconds <= 0) {
+            clearInterval(countdownInterval);
+            window.location.href = "{% url 'file_download' pk=file.pk %}";
+        }
+    }, 1000);
+    
+    // Optional: Allow immediate download
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            clearInterval(countdownInterval);
+            window.location.href = "{% url 'file_download' pk=file.pk %}";
+        }
+    });
+});
+</script>
+{% endblock %}

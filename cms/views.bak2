@@ -1,0 +1,194 @@
+from django.shortcuts import render, redirect, get_object_or_404
+from django.contrib.auth.decorators import login_required
+from django.contrib.auth import login, logout, authenticate
+from django.contrib.auth.mixins import UserPassesTestMixin
+from django.views.generic import UpdateView
+from django.db.models import Q
+from .models import (Announcement, SharedFile, Department, UserProfile, 
+                    AnnouncementComment, FileVersion, ActivityLog)
+from .forms import (AnnouncementForm, SharedFileForm, UserRegistrationForm,
+                   CommentForm, FileVersionForm, UserProfileForm, UserEditForm,
+                   SearchForm)
+from django.contrib import messages
+from django.core.paginator import Paginator
+from django.urls import reverse_lazy
+
+# ... (previous views remain the same, add these new ones)
+
+@login_required
+def add_comment(request, pk):
+    announcement = get_object_or_404(Announcement, pk=pk)
+    if request.method == 'POST':
+        form = CommentForm(request.POST)
+        if form.is_valid():
+            comment = form.save(commit=False)
+            comment.announcement = announcement
+            comment.author = request.user
+            comment.save()
+            ActivityLog.log_action(
+                request.user, 
+                'ADD_COMMENT', 
+                f"Announcement: {announcement.title}",
+                f"Comment: {comment.content[:50]}..."
+            )
+            messages.success(request, 'Comment added successfully!')
+            return redirect('announcement_detail', pk=announcement.pk)
+    else:
+        form = CommentForm()
+    return render(request, 'cms/comment_form.html', {'form': form, 'announcement': announcement})
+
+@login_required
+def update_file(request, pk):
+    file = get_object_or_404(SharedFile, pk=pk)
+    if request.method == 'POST':
+        form = FileVersionForm(request.POST, request.FILES)
+        if form.is_valid():
+            file.save_new_version(
+                form.cleaned_data['file_content'],
+                request.user,
+                form.cleaned_data['change_notes']
+            )
+            ActivityLog.log_action(
+                request.user,
+                'UPDATE_FILE',
+                f"File: {file.title}",
+                f"New version: {file.current_version}"
+            )
+            messages.success(request, 'File updated successfully!')
+            return redirect('file_detail', pk=file.pk)
+    else:
+        form = FileVersionForm()
+    return render(request, 'cms/file_update.html', {'form': form, 'file': file})
+
+@login_required
+def file_detail(request, pk):
+    file = get_object_or_404(SharedFile, pk=pk)
+    versions = file.versions.all()
+    return render(request, 'cms/file_detail.html', {'file': file, 'versions': versions})
+
+@login_required
+def file_download(request, pk, version=None):
+    file = get_object_or_404(SharedFile, pk=pk)
+    if version:
+        file_version = get_object_or_404(FileVersion, file=file, version_number=version)
+        response = FileResponse(file_version.file_content)
+        filename = f"{file.title}_v{version}.{file.extension()}"
+    else:
+        response = FileResponse(file.file)
+        filename = f"{file.title}.{file.extension()}"
+    
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    ActivityLog.log_action(
+        request.user,
+        'DOWNLOAD_FILE',
+        f"File: {file.title}",
+        f"Version: {version if version else 'current'}"
+    )
+    return response
+
+@login_required
+def search(request):
+    form = SearchForm(request.GET or None)
+    results = []
+    
+    if form.is_valid():
+        query = form.cleaned_data['query']
+        search_in = form.cleaned_data['search_in']
+        department = form.cleaned_data['department']
+        
+        user_profile = UserProfile.objects.get(user=request.user)
+        user_dept = department if department else user_profile.department
+        
+        if query:
+            if 'announcements' in search_in:
+                announcements = Announcement.objects.filter(
+                    Q(departments=user_dept),
+                    Q(title__icontains=query) | Q(content__icontains=query)
+                ).distinct()
+                results.extend(announcements)
+            
+            if 'files' in search_in:
+                files = SharedFile.objects.filter(
+                    Q(departments=user_dept),
+                    Q(title__icontains=query) | Q(description__icontains=query)
+                ).distinct()
+                results.extend(files)
+            
+            if 'comments' in search_in:
+                comments = AnnouncementComment.objects.filter(
+                    Q(announcement__departments=user_dept),
+                    Q(content__icontains=query)
+                ).distinct()
+                results.extend(comments)
+        
+        ActivityLog.log_action(
+            request.user,
+            'SEARCH',
+            f"Query: {query}",
+            f"Filters: {search_in}"
+        )
+    
+    context = {
+        'form': form,
+        'results': results,
+        'query': request.GET.get('query', ''),
+    }
+    return render(request, 'cms/search.html', context)
+
+class ProfileUpdateView(UserPassesTestMixin, UpdateView):
+    model = UserProfile
+    form_class = UserProfileForm
+    template_name = 'cms/profile_edit.html'
+    
+    def get_object(self):
+        return self.request.user.userprofile
+    
+    def test_func(self):
+        return self.request.user.is_authenticated
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['user_form'] = UserEditForm(instance=self.request.user)
+        return context
+    
+    def form_valid(self, form):
+        user_form = UserEditForm(self.request.POST, instance=self.request.user)
+        if user_form.is_valid():
+            user_form.save()
+        return super().form_valid(form)
+    
+    def get_success_url(self):
+        messages.success(self.request, 'Profile updated successfully!')
+        ActivityLog.log_action(
+            self.request.user,
+            'UPDATE_PROFILE',
+            "User updated profile"
+        )
+        return reverse_lazy('profile_view', kwargs={'pk': self.request.user.pk})
+
+@login_required
+def profile_view(request, pk):
+    user = get_object_or_404(User, pk=pk)
+    activities = ActivityLog.objects.filter(user=user).order_by('-timestamp')[:10]
+    return render(request, 'cms/profile.html', {'profile_user': user, 'activities': activities})
+
+@login_required
+def activity_log(request):
+    user_profile = UserProfile.objects.get(user=request.user)
+    
+    if user_profile.is_department_admin():
+        # Department admins see all activities in their department
+        activities = ActivityLog.objects.filter(
+            Q(user__userprofile__department=user_profile.department) |
+            Q(target__contains=str(user_profile.department))
+    else:
+        # Regular users see only their own activities
+        activities = ActivityLog.objects.filter(user=request.user)
+    
+    activities = activities.order_by('-timestamp')
+    
+    paginator = Paginator(activities, 20)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+    
+    return render(request, 'cms/activity_log.html', {'page_obj': page_obj})

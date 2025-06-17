@@ -1,0 +1,118 @@
+{% extends 'cms/base.html' %}
+{% load static %}
+
+{% block title %}Activity Log{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+        <h3>Activity Log</h3>
+        <div class="dropdown">
+            <button class="btn btn-light btn-sm dropdown-toggle" type="button" id="activityFilterDropdown" 
+                    data-bs-toggle="dropdown" aria-expanded="false">
+                <i class="fas fa-filter"></i> Filter
+            </button>
+            <ul class="dropdown-menu" aria-labelledby="activityFilterDropdown">
+                <li><a class="dropdown-item" href="?filter=all">All Activities</a></li>
+                <li><hr class="dropdown-divider"></li>
+                <li><a class="dropdown-item" href="?filter=announcements">Announcements</a></li>
+                <li><a class="dropdown-item" href="?filter=files">Files</a></li>
+                <li><a class="dropdown-item" href="?filter=comments">Comments</a></li>
+                <li><hr class="dropdown-divider"></li>
+                <li><a class="dropdown-item" href="?filter=logins">Logins/Logouts</a></li>
+            </ul>
+        </div>
+    </div>
+    <div class="card-body">
+        {% if page_obj.object_list %}
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th width="20%">Date & Time</th>
+                        <th width="15%">User</th>
+                        <th width="20%">Action</th>
+                        <th>Details</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for activity in page_obj %}
+                    <tr>
+                        <td>{{ activity.timestamp|date:"M d, Y H:i" }}</td>
+                        <td>
+                            <a href="{% url 'profile_view' pk=activity.user.pk %}" class="text-decoration-none">
+                                {{ activity.user.get_full_name|default:activity.user.username }}
+                            </a>
+                        </td>
+                        <td>
+                            <span class="badge 
+                                {% if activity.action in 'CREATE_ANN,EDIT_ANN,DELETE_ANN' %}bg-info
+                                {% elif activity.action in 'UPLOAD_FILE,UPDATE_FILE,DELETE_FILE' %}bg-success
+                                {% elif activity.action == 'ADD_COMMENT' %}bg-warning text-dark
+                                {% elif activity.action in 'LOGIN,LOGOUT' %}bg-secondary
+                                {% else %}bg-primary{% endif %}">
+                                {{ activity.get_action_display }}
+                            </span>
+                        </td>
+                        <td>
+                            {% if activity.target %}
+                                <strong>{{ activity.target }}</strong><br>
+                            {% endif %}
+                            {% if activity.details %}
+                                <small class="text-muted">{{ activity.details }}</small>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <nav aria-label="Activity log pagination">
+            <ul class="pagination justify-content-center">
+                {% if page_obj.has_previous %}
+                <li class="page-item">
+                    <a class="page-link" href="?page=1" aria-label="First">
+                        <span aria-hidden="true">&laquo;&laquo;</span>
+                    </a>
+                </li>
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ page_obj.previous_page_number }}" aria-label="Previous">
+                        <span aria-hidden="true">&laquo;</span>
+                    </a>
+                </li>
+                {% endif %}
+
+                <li class="page-item disabled">
+                    <span class="page-link">
+                        Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}
+                    </span>
+                </li>
+
+                {% if page_obj.has_next %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ page_obj.next_page_number }}" aria-label="Next">
+                        <span aria-hidden="true">&raquo;</span>
+                    </a>
+                </li>
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}" aria-label="Last">
+                        <span aria-hidden="true">&raquo;&raquo;</span>
+                    </a>
+                </li>
+                {% endif %}
+            </ul>
+        </nav>
+        {% else %}
+        <div class="alert alert-info">
+            No activities found matching your criteria.
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<!-- Add Font Awesome for icons -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+{% endblock %}
